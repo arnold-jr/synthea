@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="Gradle: com.helger:ph-schematron:5.0.6">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.helger/ph-schematron/5.0.6/e5464a0cf6975d5af6bcacb0fac02e5cb4a37d66/ph-schematron-5.0.6.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.helger/ph-schematron/5.0.6/b228033db3fdb84935a26da2e38ea68896c9429f/ph-schematron-5.0.6-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

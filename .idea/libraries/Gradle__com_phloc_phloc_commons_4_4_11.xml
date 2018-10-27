@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="Gradle: com.phloc:phloc-commons:4.4.11">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.phloc/phloc-commons/4.4.11/a1e62a77e4df5fe6467647c477543e82bc0c6063/phloc-commons-4.4.11.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.phloc/phloc-commons/4.4.11/d5b54a253ab7341b8e024c6f1567c8e7365d2898/phloc-commons-4.4.11-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

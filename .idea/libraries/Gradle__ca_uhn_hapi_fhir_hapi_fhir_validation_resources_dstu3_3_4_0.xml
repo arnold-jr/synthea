@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="Gradle: ca.uhn.hapi.fhir:hapi-fhir-validation-resources-dstu3:3.4.0">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/ca.uhn.hapi.fhir/hapi-fhir-validation-resources-dstu3/3.4.0/64a2e24366e7628b87b5e962544b082cc7c4e05d/hapi-fhir-validation-resources-dstu3-3.4.0.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/ca.uhn.hapi.fhir/hapi-fhir-validation-resources-dstu3/3.4.0/70e3c0eaa5acf1d8f8c514870e7292ca5328bd58/hapi-fhir-validation-resources-dstu3-3.4.0-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

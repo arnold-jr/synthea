@@ -12,6 +12,8 @@ apply plugin: 'application'
 apply plugin: 'eclipse'
 apply plugin: 'checkstyle'
 apply plugin: 'jacoco'
+apply plugin: 'scala'
+
 
 // In this section you declare where to find the dependencies of your project
 repositories {
@@ -57,6 +59,9 @@ dependencies {
   // if we switch to a real logging framework we may want to switch this
   compile "org.slf4j:slf4j-api:1.6.1"
   compile "org.slf4j:slf4j-nop:1.6.1"
+
+  // Akka dependencies
+  compile group: 'com.typesafe.akka', name: 'akka-actor_2.12', version: '2.5.17'
 
   // Use JUnit test framework
   testCompile 'junit:junit:4.12'

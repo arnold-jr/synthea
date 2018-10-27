@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="Gradle: com.phloc:phloc-schematron:2.7.1">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.phloc/phloc-schematron/2.7.1/778cfb5a142c2b3ee529a68432486233d6de1a55/phloc-schematron-2.7.1.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.phloc/phloc-schematron/2.7.1/51a4ca4efc673db111ff0f2800e4f9fc5b5973d0/phloc-schematron-2.7.1-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

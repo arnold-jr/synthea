@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="Gradle: com.helger:ph-commons:9.1.5">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.helger/ph-commons/9.1.5/94e9de9b39efa18e02e0f7f3c4049c0df5ecba6d/ph-commons-9.1.5.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.helger/ph-commons/9.1.5/2c65e7fed03d38df0b5166b3aa21f0ee1d4f2e8a/ph-commons-9.1.5-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

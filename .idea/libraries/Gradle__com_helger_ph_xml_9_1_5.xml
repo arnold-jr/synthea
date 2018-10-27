@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="Gradle: com.helger:ph-xml:9.1.5">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.helger/ph-xml/9.1.5/e6f888785e4bcb372fcd899c5fab478e14b8a659/ph-xml-9.1.5.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.helger/ph-xml/9.1.5/5046c800a5146bc8aaad504fcf280e1937649969/ph-xml-9.1.5-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
