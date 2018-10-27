@@ -14,9 +14,6 @@ import scala.collection.JavaConverters._
 import scala.collection._
 
 class PersonActor(personSeed: Long,
-                  location: Location,
-                  demoAttributes: concurrent.Map[String, Object],
-                  options: GeneratorOptions,
                   timeStep: Long,
                   stop: Long) extends Actor with ActorLogging {
 

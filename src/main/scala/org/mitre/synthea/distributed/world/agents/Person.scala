@@ -8,10 +8,12 @@ import org.apache.sis.geometry.DirectPosition2D
 import org.apache.sis.index.tree.QuadTreeData
 import org.mitre.synthea.distributed.world.agents.Person.BIRTHDATE
 import org.mitre.synthea.distributed.world.agents.Provider.ProviderType
+import org.mitre.synthea.engine.Generator.GeneratorOptions
 import org.mitre.synthea.engine.{Event, EventList, Module, State}
 import org.mitre.synthea.world.concepts.{HealthRecord, VitalSign}
+import org.mitre.synthea.world.geography.Location
 
-import scala.collection.mutable
+import scala.collection.{concurrent, mutable}
 import scala.util.Random
 
 case class PersonName(
@@ -23,7 +25,13 @@ case class PersonName(
                        NAME: String
                      )
 
-
+case class BirthPlace(
+                       ADDRESS: String,
+                       CITY: String,
+                       STATE: String,
+                       ZIP: String,
+                       BIRTHPLACE: String
+                     )
 
 object Person {
   type PreferredProviders = mutable.Map[ProviderType, Provider]
@@ -36,11 +44,6 @@ object Person {
   type MULTIPLE_BIRTH_STATUS = String
   type TELECOM = String
   type ID = String
-  type ADDRESS = String
-  type CITY = String
-  type STATE = String
-  type ZIP = String
-  type BIRTHPLACE = String
   type COORDINATE = String
   type NAME_MOTHER = String
   type NAME_FATHER = String
@@ -68,23 +71,30 @@ object Person {
 @SerialVersionUID(4322116644425686379L)
 case class Person(seed: Long,
                   birthdate: BIRTHDATE,
-                  vitalSigns: mutable.Map[VitalSign, Double],
-                  symptoms: mutable.Map[String, mutable.Map[String, Int]],
-                  symptomStatuses: mutable.Map[String, mutable.Map[String, Boolean]]
                  )
   extends Serializable with QuadTreeData {
 
   import Person._
 
+  /* state */
   var providers: PreferredProviders
-
+  var vitalSigns: mutable.Map[VitalSign, Double]
+  var symptoms: mutable.Map[String, mutable.Map[String, Int]]
+  var symptomStatuses: mutable.Map[String, mutable.Map[String, Boolean]]
+  var events: EventList
+  var record: HealthRecord
+  /** history of the currently active module. */
+  var history: List[State]
+  var encounters: mutable.Map[String, HealthRecord#Encounter]
+  var location: Location
+  var coord: DirectPosition2D
+  var demoAttributes: concurrent.Map[String, Object]
+  var options: GeneratorOptions
+  var timeStep: Long
+  var causeOfDeath: Option[HealthRecord.Code]
   val random = new Random(seed)
   var populationSeed = 0L
 
-  var events: EventList = null
-  var record: HealthRecord = null
-  /** history of the currently active module. */
-  var history: util.List[State] = null
 
   def rand: Double = random.nextDouble
 
@@ -162,9 +172,9 @@ case class Person(seed: Long,
     var highestCause = ""
     var maxValue = 0
     for (symptomType <- symptoms.keySet) {
-      if (symptoms.containsKey(symptomType) && symptomStatuses.containsKey(symptomType)) {
+      if (symptoms.contains(symptomType) && symptomStatuses.contains(symptomType)) {
         val typedSymptoms = symptoms.get(symptomType)
-        for (cause <- typedSymptoms.keySet) {
+        for (cause <- typedSymptoms) {
           if (typedSymptoms.get(cause) > maxValue && !symptomStatuses.get(symptomType).get(cause)) {
             maxValue = typedSymptoms.get(cause)
             highestCause = cause
@@ -189,8 +199,11 @@ case class Person(seed: Long,
       // (ex, a condition with some life expectancy sets a future death date)
       // but then the patient dies sooner because of something else
       record.death = time
-      if (cause == null) attributes.remove(Person.CAUSE_OF_DEATH)
-      else attributes.put(Person.CAUSE_OF_DEATH, cause)
+      if (cause == null) {
+        causeOfDeath = None
+      } else {
+        causeOfDeath = Some(cause)
+      }
     }
   }
 
@@ -214,34 +227,19 @@ case class Person(seed: Long,
   def hadPriorState(name: String): Boolean = hadPriorState(name, null, null)
 
   def hadPriorState(name: String, since: String, within: Long): Boolean = {
-    if (history == null) return false
-    import scala.collection.JavaConversions._
-    for (state <- history) {
-      if (within != null && state.exited != null && state.exited <= within) return false
-      if (since != null && state.name == since) return false
-      if (state.name == name) return true
+    if (history.isEmpty) {
+      false
+    } else {
+      for (state <- history) {
+        if (within != null && state.exited != null && state.exited <= within) return false
+        if (since != null && state.name == since) return false
+        if (state.name == name) return true
+      }
+      false
+
     }
-    false
   }
 
-  def getCurrentEncounter(module: Module): HealthRecord#Encounter = {
-    var moduleToCurrentEncounter = attributes.get(Person.CURRENT_ENCOUNTERS).asInstanceOf[util.Map[String, HealthRecord#Encounter]]
-    if (moduleToCurrentEncounter == null) {
-      moduleToCurrentEncounter = new util.HashMap[String, HealthRecord#Encounter]
-      attributes.put(Person.CURRENT_ENCOUNTERS, moduleToCurrentEncounter)
-    }
-    moduleToCurrentEncounter.get(module.name)
-  }
-
-  def setCurrentEncounter(module: Module, encounter: HealthRecord#Encounter): Unit = {
-    var moduleToCurrentEncounter = attributes.get(Person.CURRENT_ENCOUNTERS).asInstanceOf[util.Map[String, HealthRecord#Encounter]]
-    if (moduleToCurrentEncounter == null) {
-      moduleToCurrentEncounter = new util.HashMap[String, HealthRecord#Encounter]
-      attributes.put(Person.CURRENT_ENCOUNTERS, moduleToCurrentEncounter)
-    }
-    if (encounter == null) moduleToCurrentEncounter.remove(module.name)
-    else moduleToCurrentEncounter.put(module.name, encounter)
-  }
 
   def getProvider(encounterClass: String, time: Long): Provider = {
 
@@ -254,21 +252,25 @@ case class Person(seed: Long,
   /*
      * (non-Javadoc)
      * @see org.apache.sis.index.tree.QuadTreeData#getX()
-     */ override def getX: Double = getLatLon.getX
+     */
+  override def getX: Double = getLatLon.getX
 
   /*
      * (non-Javadoc)
      * @see org.apache.sis.index.tree.QuadTreeData#getY()
-     */ override def getY: Double = getLatLon.getY
+     */
+  override def getY: Double = getLatLon.getY
 
   /*
      * (non-Javadoc)
      * @see org.apache.sis.index.tree.QuadTreeData#getLatLon()
-     */ override def getLatLon: DirectPosition2D = attributes.get(Person.COORDINATE).asInstanceOf[DirectPosition2D]
+     */
+  override def getLatLon: DirectPosition2D = coord
 
   /*
      * (non-Javadoc)
      * @see org.apache.sis.index.tree.QuadTreeData#getFileName()
-     */ override def getFileName: String = null
+     */
+  override def getFileName: String = null
 }
 

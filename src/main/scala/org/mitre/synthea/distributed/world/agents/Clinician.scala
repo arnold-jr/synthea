@@ -39,7 +39,7 @@ class Clinician(val seed: Long) // keep track of seed so it can be exported late
   this.uuid = UUID.randomUUID.toString
   random = new Random(seed)
   attributes = new ConcurrentHashMap[String, AnyRef]
-  servicesProvided = new util.ArrayList[String]
+  servicesProvided = List.empty[String]
   final var random: Random = null
   final var uuid: String = null
   var attributes: util.Map[String, AnyRef] = null
