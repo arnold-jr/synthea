@@ -1,12 +1,6 @@
 package org.mitre.synthea.distributed.modules
 
 import org.mitre.synthea.distributed.world.agents.Person
-import org.mitre.synthea.world.concepts.HealthRecord.Code
-import org.mitre.synthea.world.concepts.HealthRecord.Encounter
-import org.mitre.synthea.world.concepts.HealthRecord.Observation
-import org.mitre.synthea.world.concepts.HealthRecord.Report
-import java.util
-import java.util.{Arrays, Collection}
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import org.mitre.synthea.world.concepts.HealthRecord
@@ -19,6 +13,7 @@ class DeathModule(dataStore: ActorRef) extends Actor with ActorLogging {
   }
 
   def process(person: Person, time: Long): Unit = {
+
     if (!person.alive(time) && person.causeOfDeath.isDefined) { // create an encounter, diagnostic report, and observation
       val causeOfDeath = person.causeOfDeath.get
 
@@ -32,6 +27,7 @@ class DeathModule(dataStore: ActorRef) extends Actor with ActorLogging {
 
       dataStore ! "a person died"
     }
+
   }
 
 }
