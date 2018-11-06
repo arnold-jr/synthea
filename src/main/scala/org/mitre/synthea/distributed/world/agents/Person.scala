@@ -1,20 +1,21 @@
 package org.mitre.synthea.distributed.world.agents
 
-import java.time.{LocalDate, Period}
+import java.time.{LocalDate, LocalDateTime, Period, ZoneOffset}
 
 import akka.actor.{FSM, Props}
 
 import scala.util.Random
-import Person._
-import org.mitre.synthea.world.agents.Person
-import org.mitre.synthea.world.concepts.VitalSign
+import org.mitre.synthea.distributed.modules.LifecycleModule
+import org.mitre.synthea.distributed.world.geography.Address
 
 
-class Person(seed: Long, birthPlace: BirthPlace, birthDate: Option[LocalDate]) extends FSM[State, Data] {
+class Person(seed: Long, birthPlace: Person.BirthPlace, birthDate: Option[LocalDate]) extends FSM[Person.State, Person.StateData] {
 
+  import Person._
   import Protocol._
 
   val random = new Random(seed)
+
   var populationSeed = 0L
 
   startWith(Unborn, Uninitialized)
@@ -22,17 +23,19 @@ class Person(seed: Long, birthPlace: BirthPlace, birthDate: Option[LocalDate]) e
   when(Unborn) {
 
     case Event(BeBorn, Uninitialized) =>
-      goto(Alive) using StateData(
+      goto(Alive) using Data(
         random = random,
         name = Name("John", "Doe", None, None, Some("Jr.")),
         gender = List("Male","Female")(random.nextInt(2)),
         age = new Period(0),
         legal = Legal(),
         socioEconomic = SocioEconomic(),
+        behavior = Behavior(),
         providers = PreferredProviders.empty,
         vitalSigns = VitalSigns(),
         symptoms = Symptoms.empty,
-        history = List.empty[StateData],
+        conditions = Conditions(),
+        history = List.empty[Data],
         encounters = Encounters.empty,
         causeOfDeath = None
       )
@@ -52,11 +55,17 @@ class Person(seed: Long, birthPlace: BirthPlace, birthDate: Option[LocalDate]) e
 
   when(Alive) {
 
-    case Event(Die(cause), data: StateData) =>
+    case Event(Die(cause), data: Data) =>
       goto(Dead) using data.copy(causeOfDeath = cause)
 
-    case Event(AdvanceDays(days), data: StateData) =>
-      stay using data.copy()
+    case Event(AdvanceToDateTime(dateTime), data: Data) =>
+      val state1 = LifecycleModule.process(data, dateTime.toEpochSecond(ZoneOffset.UTC))
+
+      state1.legal.timeOfDeath match {
+        case None => stay using state1
+        case Some(_) => goto(Dead) using state1
+      }
+
   }
 
   whenUnhandled {
@@ -66,8 +75,6 @@ class Person(seed: Long, birthPlace: BirthPlace, birthDate: Option[LocalDate]) e
   }
 
   initialize()
-
-
 
 }
 
@@ -87,23 +94,39 @@ object Person {
                     ssn: Option[Int] = None,
                     driversId: Option[String] = None,
                     passportId: Option[String] = None,
-                    maritalStatus: Option[MaritalStatus] = None
+                    maritalStatus: Option[MaritalStatus] = None,
+                    timeOfDeath: Option[LocalDateTime] = None
                   )
 
-  case class BirthPlace(
+  case class BirthPlace (
                          address: String,
                          city: String,
                          state: String,
                          zip: String,
                          birthplace: String
-                       )
+                       ) extends Address
 
   case class Behavior(
-                       smoker: Some[Boolean],
-                       alcoholic: Some[Boolean],
-                       adherence: Some[Float],
-                       sexualOrientation: Some[SexualOrientation]
+                       smoker: Option[Boolean] = None,
+                       quitSmokingProbability: Option[Double] = None,
+                       quitSmokingAge: Option[Int] = None,
+                       alcoholic: Option[Boolean] = None,
+                       quitAlcoholismProbability: Option[Double] = None,
+                       quitAlcoholismAge: Option[Int] = None,
+                       adherence: Option[Boolean] = None,
+                       adherenceProbability: Option[Double] = None,
+                       sexualOrientation: Option[SexualOrientation] = None
                      )
+
+  case class Conditions(
+                         hypertension: Option[Boolean] = None,
+                         diabetes: Option[Boolean] = None,
+                         prediabetes: Option[Boolean] = None,
+                         diabetesSeverity: Option[Int] = None,
+                         diabeticKidneyDamage: Option[Int] = None,
+                         osteoporosis: Option[Boolean] = None,
+                         probabilityOfFallInjury: Option[Double] = None
+                       )
 
   case class SocioEconomic(
                             firstLanguage: Option[Language] = None,
@@ -116,27 +139,66 @@ object Person {
                             occupationLevel: Option[OCCUPATION_LEVEL] = None
                           )
 
+  case class VitalSigns(
+                         height: Option[Double] = None,
+                         weight: Option[Double] = None,
+                         heightPercentile: Option[Double] = None,
+                         weightPercentile: Option[Double] = None,
+                         bmi: Option[Double] = None,
+                         systolicBloodPressure: Option[Double] = None,
+                         diastolicBloodPressure: Option[Double] = None,
+                         totalCholesterol: Option[Double] = None,
+                         triglycerides: Option[Double] = None,
+                         hdl: Option[Double] = None,
+                         ldl: Option[Double] = None,
+                         bloodGlucose: Option[Double] = None,
+                         egfr: Option[Int] = None,
+                         microalbuminCreatinineRatio: Option[Double] = None,
+                         creatinine: Option[Double] = None,
+                         ureaNitrogen: Option[Double] = None,
+                         calcium: Option[Double] = None,
+                         glucose: Option[Double] = None,
+                         chloride: Option[Double] = None,
+                         potassium: Option[Double] = None,
+                         carbonDioxide: Option[Double] = None,
+                         sodium: Option[Double] = None
+                       )
+
   // states
   sealed trait State
   case object Unborn extends State
   case object Alive extends State
   case object Dead extends State
 
-  sealed trait Data
-  case object Uninitialized extends Data
-  case class StateData(random: Random,
-                       name: Name,
-                       gender: Gender,
-                       age: Period,
-                       legal: Legal,
-                       socioEconomic: SocioEconomic,
-                       providers: PreferredProviders,
-                       vitalSigns: VitalSigns,
-                       symptoms: Symptoms,
-                       history: List[StateData],
-                       encounters: Encounters,
-                       causeOfDeath: CauseOfDeath
-                      ) extends Data
+  sealed trait StateData
+
+  case object Uninitialized extends StateData
+
+  case class Data(random: Random,
+                  name: Name,
+                  gender: Gender,
+                  age: Period,
+                  legal: Legal,
+                  socioEconomic: SocioEconomic,
+                  behavior: Behavior,
+                  providers: PreferredProviders,
+                  vitalSigns: VitalSigns,
+                  symptoms: Symptoms,
+                  conditions: Conditions,
+                  history: List[Data],
+                  encounters: Encounters,
+                  causeOfDeath: CauseOfDeath
+                 ) extends StateData {
+
+    def rand(xs: Array[Double]): Double = {
+      random.nextDouble * (xs(1) - xs(0)) + xs(0)
+    }
+
+    def rand(xs: Array[Int]): Int = {
+      random.nextInt * (xs(1) - xs(0)) + xs(0)
+    }
+
+  }
 
   def props(seed: Long, birthPlace: BirthPlace, birthDate: Option[LocalDate]) = Props(new Person(seed, birthPlace, birthDate))
 

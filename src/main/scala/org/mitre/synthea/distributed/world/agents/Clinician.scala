@@ -1,89 +1,85 @@
 package org.mitre.synthea.distributed.world.agents
 
-import java.io.Serializable
-import java.util
-import java.util.{ArrayList, Map, Random, UUID}
-import java.util.concurrent.ConcurrentHashMap
+import java.time.Period
+import java.util.UUID
 
-import org.apache.sis.geometry.DirectPosition2D
-import org.apache.sis.index.tree.QuadTreeData
+import akka.actor.{FSM, Props}
+import org.mitre.synthea.distributed.world.concepts.ClinicianSpecialty
+import org.mitre.synthea.distributed.world.geography.Address
+
+import scala.util.Random
+
+// keep track of seed so it can be exported later
+class Clinician(val seed: Long, val specialty: ClinicianSpecialty) extends FSM[Clinician.State, Clinician.Data] {
+  import Clinician._
+  import Protocol._
+
+  val uuid: String = UUID.randomUUID().toString
+
+  val random: Random = new Random(seed)
+  var populationSeed = 0L
 
 
-@SerialVersionUID(1370111157423846567L)
+  startWith(Active, Uninitialized)
+
+  when(Active) {
+
+    case Event("SeePatient", d: StateData) =>
+      log.debug("Seeing patient")
+      stay using d.copy(numEncounters = d.numEncounters + 1)
+
+    case Event("LearnMedicine", d: StateData) =>
+      log.debug("Learning medicine")
+      stay using d.copy(numEncounters = d.numEncounters + 1)
+
+    case Event("LearnLanguage(language)", d: StateData) =>
+      log.debug("Learning language")
+      stay using d.copy(numEncounters = d.numEncounters + 1)
+
+  }
+
+
+}
+
 object Clinician {
-  type WELLNESS = String
-  type AMBULATORY = String
-  type INPATIENT = String
-  type EMERGENCY = String
-  type URGENTCARE = String
-  type FIRST_NAME = String
-  type LAST_NAME = String
-  type NAME_PREFIX = String
-  type NAME_SUFFIX = String
-  type NAME = String
+
   type FIRST_LANGUAGE = String
   type GENDER = String
   type EDUCATION = String
-  type SPECIALTY = String
-  type ADDRESS = String
-  type CITY = String
-  type STATE = String
-  type ZIP = String
   type LOCATION = String
+
+  case class ClinicianAddress (
+                                address: String,
+                                city: String,
+                                state: String,
+                                zip: String
+                              ) extends Address
+
+  // states
+  sealed trait State
+  case object InGradeSchool extends State
+  case object InHighSchool extends State
+  case object InCollege extends State
+  case object InMedicalSchool extends State
+  case object InResidency extends State
+  case object Active extends State
+  case object Retired extends State
+
+  sealed trait Data
+  case object Uninitialized extends Data
+  case class StateData(random: Random,
+                       name: Person.Name,
+                       gender: Gender,
+                       age: Period,
+                       legal: Person.Legal,
+                       address: ClinicianAddress,
+                       numEncounters: Int,
+                       specialty: ClinicianSpecialty,
+                       servicesProvided: List[String] = List.empty[String]
+                      ) extends Data {
+
+
+  def props(seed: Long, specialty: ClinicianSpecialty) = Props(new Clinician(seed, specialty))
+
 }
-
-@SerialVersionUID(1370111157423846567L)
-class Clinician(val seed: Long) // keep track of seed so it can be exported later
-
-  extends Serializable with QuadTreeData {
-  this.uuid = UUID.randomUUID.toString
-  random = new Random(seed)
-  attributes = new ConcurrentHashMap[String, AnyRef]
-  servicesProvided = List.empty[String]
-  final var random: Random = null
-  final var uuid: String = null
-  var attributes: util.Map[String, AnyRef] = null
-  private var servicesProvided = null
-  private var encounters = 0
-  var populationSeed = 0L
-
-  def getResourceID: String = uuid
-
-  def rand: Double = random.nextDouble
-
-  def getAttributes: util.Map[String, AnyRef] = attributes
-
-  def hasService(service: String): Boolean = servicesProvided.contains(service)
-
-  /**
-    * Increment the number of encounters performed by this Clinician.
-    *
-    * @return The incremented number of encounters.
-    */
-  def incrementEncounters: Int = {
-    encounters += 1; encounters - 1
-  }
-
-  /**
-    * Get the number of encounters performed by this Clinician.
-    *
-    * @return The number of encounters.
-    */
-  def getEncounterCount: Int = encounters
-
-  def randInt: Int = random.nextInt
-
-  def randInt(bound: Int): Int = random.nextInt(bound)
-
-  override def getX: Double = { // TODO Auto-generated method stub
-    0
-  }
-
-  override def getY = 0
-
-  override def getLatLon: DirectPosition2D = null
-
-  override def getFileName: String = null
-}
-
 

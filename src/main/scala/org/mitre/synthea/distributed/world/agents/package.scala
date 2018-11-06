@@ -13,13 +13,6 @@ package object agents {
     val empty: PreferredProviders = Map.empty[ProviderType, Provider]
   }
 
-  case class VitalSigns(
-                        height: Option[Double] = None,
-                        weight: Option[Double] = None,
-                        heightPercentile: Option[Double] = None,
-                        weightPercentile: Option[Double] = None,
-                        bmi: Option[Double] = None
-                       )
 
   type SymptomType = String
   type SymptomCause = String
