@@ -31,50 +31,15 @@ class Provider(place: Place) extends FSM[Provider.State, Provider.StateData] {
   import Provider._
 
 
-  def incrementEncounters(encounterType: String, year: Int): Unit = {
-    increment(year, Provider.ENCOUNTERS)
-    increment(year, Provider.ENCOUNTERS + "-" + encounterType)
+  when(Hiring) {
+    case Event("Find people to hire", _) =>
+      stay
   }
 
-  def incrementProcedures(year: Int): Unit = {
-    increment(year, Provider.PROCEDURES)
-  }
-
-  def incrementLabs(year: Int): Unit = {
-    increment(year, Provider.LABS)
-  }
-
-  def incrementPrescriptions(year: Int): Unit = {
-    increment(year, Provider.PRESCRIPTIONS)
-  }
-
-  private def increment(year: Integer, key: String): Unit = {
-    if (!utilization.contains(year, key)) utilization.put(year, key, new AtomicInteger(0))
-    utilization.get(year, key).incrementAndGet
-  }
-
-  def getUtilization: Table[Integer, String, AtomicInteger] = utilization
-
-  /**
-    * Get the bed count for this Provider facility.
-    *
-    * @return The number of beds, if they exist, otherwise null.
-    */
-  def getBedCount: Integer = if (attributes.containsKey("bed_count")) attributes.get("bed_count").toString.toInt
-  else null
-
-  /**
-    * Will this provider accept the given person as a patient at the given time?.
-    *
-    * @param person Person to consider
-    * @param time   Time the person seeks care
-    * @return whether or not the person can receive care by this provider
-    */
-  def accepts(person: Person, time: Long): Boolean = { // for now assume every provider accepts every patient
-    // UNLESS it's a VA facility and the person is not a veteran
-    // eventually we may want to expand this (ex. capacity?)
-    if ("VA Facility" == this.providerType && !person.attributes.containsKey("veteran")) return false
-    true
+  when(Open) {
+    case Event("Treat patient", _) =>
+      //if ("VA Facility" == this.providerType && !person.attributes.containsKey("veteran")) return false
+      stay
   }
 
   /**
@@ -84,68 +49,62 @@ class Provider(place: Place) extends FSM[Provider.State, Provider.StateData] {
     * @param specialty     - which specialty clinicians to generate
     * @return
     */
-  private def generateClinicianList(numClinicians: Int, specialty: Specialty): List[ActorRef] = {
+  private def generateClinicianList(numClinicians: Int,
+                                    specialty: ClinicianSpecialty,
+                                    seed: Option[Long] = None): List[Clinician.Data] = {
+
     List.range(0, numClinicians).map{ i =>
-      generateClinician(i, this, specialty, clinicianSeed)
-      clinician.attributes.put(Clinician.SPECIALTY, specialty)
-      clinicians.add(clinician)
+
+      val clinicianSeed = seed match {
+        case Some(s) => s
+        case None => UUID.randomUUID.getMostSignificantBits & Long.MaxValue
+      }
+
+      val randomForDemographics = new Random(clinicianSeed)
+      val city = Location.randomCity(randomForDemographics)
+
+      val out = new util.HashMap[String, AnyRef]
+      val race = city.pickRace(randomForDemographics)
+      out.put(Person.RACE, race)
+
+      val ethnicity = city.ethnicityFromRace(race, randomForDemographics)
+      out.put(Person.ETHNICITY, ethnicity)
+
+      val language = city.languageFromEthnicity(ethnicity, randomForDemographics)
+      out.put(Person.FIRST_LANGUAGE, language)
+
+      val gender = city.pickGender(randomForDemographics)
+
+      if (gender.equalsIgnoreCase("male") || gender.equalsIgnoreCase("M")) gender = "M"
+      else gender = "F"
+
+      out.put(Person.GENDER, gender)
+
+      clinician.attributes.putAll(out)
+
+      var firstName = LifecycleModule.fakeFirstName(gender, language, clinician.random)
+      var lastName = LifecycleModule.fakeLastName(language, clinician.random)
+      if (LifecycleModule.appendNumbersToNames) {
+        firstName = LifecycleModule.addHash(firstName)
+        lastName = LifecycleModule.addHash(lastName)
+      }
+
+
+      Clinician.StateData(
+        name = Person.Name(
+          firstName = LifecycleModule.fakeFirstName(gender, language, randomForDemographics),
+          lastName = LifecycleModule.fakeLastName(language, randomForDemographics),
+          maidenName = None,
+          namePrefix = Some("Dr."),
+          None
+        ),
+        address = Clinician.ClinicianAddress(),
+        education = Clinician.ClinicianEducation()
+      )
     }
 
   }
 
-  /**
-    * Generate a random clinician, from the given seed.
-    * The seed used to generate the person is randomized as well.
-    *
-    * @param index Target index in the whole set of people to generate
-    * @return generated Person
-    */
-  private def generateClinician(index: Int, provider: Provider, specialty: Specialty, seed: Option[Long] = None) = { // System.currentTimeMillis is not unique enough
-
-    val clinicianSeed = seed match {
-      case Some(s) => s
-      case None => UUID.randomUUID.getMostSignificantBits & Long.MaxValue
-    }
-
-    val randomForDemographics = new Random(clinicianSeed)
-    val city = location.randomCity(randomForDemographics)
-
-    val out = new util.HashMap[String, AnyRef]
-    val race = city.pickRace(randomForDemographics)
-    out.put(Person.RACE, race)
-
-    val ethnicity = city.ethnicityFromRace(race, randomForDemographics)
-    out.put(Person.ETHNICITY, ethnicity)
-
-    val language = city.languageFromEthnicity(ethnicity, randomForDemographics)
-    out.put(Person.FIRST_LANGUAGE, language)
-
-    var gender = city.pickGender(randomForDemographics)
-
-    if (gender.equalsIgnoreCase("male") || gender.equalsIgnoreCase("M")) gender = "M"
-    else gender = "F"
-
-    out.put(Person.GENDER, gender)
-
-    clinician = new agents.Clinician(clinicianSeed)
-    clinician.attributes.putAll(out)
-    clinician.attributes.put(Person.ADDRESS, provider.address)
-    clinician.attributes.put(Person.CITY, provider.city)
-    clinician.attributes.put(Person.STATE, provider.state)
-    clinician.attributes.put(Person.ZIP, provider.zip)
-    var firstName = LifecycleModule.fakeFirstName(gender, language, clinician.random)
-    var lastName = LifecycleModule.fakeLastName(language, clinician.random)
-    if (LifecycleModule.appendNumbersToNames) {
-      firstName = LifecycleModule.addHash(firstName)
-      lastName = LifecycleModule.addHash(lastName)
-    }
-    clinician.attributes.put(Clinician.FIRST_NAME, firstName)
-    clinician.attributes.put(Clinician.LAST_NAME, lastName)
-    clinician.attributes.put(Clinician.NAME, firstName + " " + lastName)
-    clinician.attributes.put(Clinician.NAME_PREFIX, "Dr.")
-    // Degree's beyond a bachelors degree are not currently tracked.
-    clinician.attributes.put(Clinician.EDUCATION, "bs_degree")
-  }
 
 
   /**
@@ -270,135 +229,13 @@ object Provider {
     */
   private def generateQuadTree = new QuadTree(7500, 25) // capacity, depth
 
-  /**
-    * Load into cache the list of providers for a state.
-    *
-    * @param location the state being loaded.
-    */
-  def loadProviders(location: Location): Unit = {
-    if (!statesLoaded.contains(location.state) || !statesLoaded.contains(Location.getAbbreviation(location.state)) || !statesLoaded.contains(Location.getStateName(location.state))) try {
-      val servicesProvided = new util.HashSet[String]
-      servicesProvided.add(Provider.AMBULATORY)
-      servicesProvided.add(Provider.INPATIENT)
-      val hospitalFile = Config.get("generate.providers.hospitals.default_file")
-      loadProviders(location, hospitalFile, servicesProvided)
-      val vaFile = Config.get("generate.providers.veterans.default_file")
-      loadProviders(location, vaFile, servicesProvided)
-      servicesProvided.clear()
-      servicesProvided.add(Provider.WELLNESS)
-      val primaryCareFile = Config.get("generate.providers.primarycare.default_file")
-      loadProviders(location, primaryCareFile, servicesProvided)
-      servicesProvided.clear()
-      servicesProvided.add(Provider.URGENTCARE)
-      val urgentcareFile = Config.get("generate.providers.urgentcare.default_file")
-      loadProviders(location, urgentcareFile, servicesProvided)
-      statesLoaded.add(location.state)
-      statesLoaded.add(Location.getAbbreviation(location.state))
-      statesLoaded.add(Location.getStateName(location.state))
-    } catch {
-      case e: IOException =>
-        System.err.println("ERROR: unable to load providers for state: " + location.state)
-        e.printStackTrace()
-    }
-  }
-
-  /**
-    * Read the providers from the given resource file, only importing the ones for the given state.
-    * THIS method is for loading providers and generating clinicians with specific specialties
-    *
-    * @param location         the state being loaded
-    * @param filename         Location of the file, relative to src/main/resources
-    * @param servicesProvided Set of services provided by these facilities
-    * @throws IOException if the file cannot be read
-    */
-  @throws[IOException]
-  def loadProviders(location: Location, filename: String, servicesProvided: util.Set[String]): Unit = {
-    val resource = Utilities.readResource(filename)
-    val csv = SimpleCSV.parseLineByLine(resource)
-    while ( {
-      csv.hasNext
-    }) {
-      val row = csv.next
-      val currState = row.get("state")
-      val abbreviation = Location.getAbbreviation(location.state)
-      // for now, only allow one state at a time
-      if ((location.state == null) || (location.state != null && location.state.equalsIgnoreCase(currState)) || (abbreviation != null && abbreviation.equalsIgnoreCase(currState))) {
-        val parsed = csvLineToProvider(row)
-        parsed.servicesProvided.addAll(servicesProvided)
-        if ("Yes" == row.remove("emergency")) parsed.servicesProvided.add(Provider.EMERGENCY)
-        // add any remaining columns we didn't explicitly map to first-class fields
-        // into the attributes table
-        import scala.collection.JavaConversions._
-        for (e <- row.entrySet) {
-          parsed.attributes.put(e.getKey, e.getValue)
-        }
-        parsed.location = location
-        // String city = parsed.city;
-        // String address = parsed.address;
-        if (row.get("hasSpecialties") == null || row.get("hasSpecialties").equalsIgnoreCase("false")) parsed.clinicianMap.put(ClinicianSpecialty.GENERAL_PRACTICE, parsed.generateClinicianList(1, ClinicianSpecialty.GENERAL_PRACTICE))
-        else {
-          for (specialty <- ClinicianSpecialty.getSpecialties) {
-            val specialtyCount = row.get(specialty)
-            if (specialtyCount != null && !(specialtyCount.trim == "") && !(specialtyCount.trim == "0")) parsed.clinicianMap.put(specialty, parsed.generateClinicianList(row.get(specialty).toInt, specialty))
-          }
-          if (row.get(ClinicianSpecialty.GENERAL_PRACTICE) == "0") parsed.clinicianMap.put(ClinicianSpecialty.GENERAL_PRACTICE, parsed.generateClinicianList(1, ClinicianSpecialty.GENERAL_PRACTICE))
-        }
-        providerList.add(parsed)
-        val inserted = providerMap.insert(parsed)
-        if (!inserted) throw new RuntimeException("Provider QuadTree Full! Dropping # " + loaded + ": " + parsed.name + " @ " + parsed.city)
-        else loaded += 1
-      }
-    }
-  }
-
-  /**
-    * Given a line of parsed CSV input, convert the data into a Provider.
-    *
-    * @param line - read a csv line to a provider's attributes
-    * @return A provider.
-    */
-  private def csvLineToProvider(line: util.Map[String, String]) = {
-    val d = new Provider
-    d.uuid = UUID.randomUUID.toString
-    // using remove instead of get here so that we can iterate over the remaining keys later
-    d.id = line.remove("id")
-    d.name = line.remove("name")
-    d.address = line.remove("address")
-    d.city = line.remove("city")
-    d.state = line.remove("state")
-    d.zip = line.remove("zip")
-    d.phone = line.remove("phone")
-    d.providerType = line.remove("type")
-    d.ownership = line.remove("ownership")
-    try
-      d.quality = line.remove("quality").toInt
-    catch {
-      case e: Exception =>
-
-      // Swallow invalid format data
-    }
-    try {
-      val lat = line.remove("LAT").toDouble
-      val lon = line.remove("LON").toDouble
-      d.coordinates = new DirectPosition2D(lon, lat)
-    } catch {
-      case e: Exception =>
-        val lat = 0.0
-        val lon = 0.0
-        d.coordinates = new DirectPosition2D(lon, lat)
-    }
-    d
-  }
-
-  def getProviderList: util.List[Provider] = providerList
-
-
 
   // states
   sealed trait State
-  case object Unborn extends State
-  case object Alive extends State
-  case object Dead extends State
+  case object Open extends State
+  case object Hiring extends State
+  case object Firing extends State
+  case object Closed extends State
 
   sealed trait StateData
 
@@ -408,7 +245,7 @@ object Provider {
                   encounters: Encounters,
                   servicesProvided: List[String],
                   utilization: Map[String, Double],
-                  clinicianMap: Map[String, List[ActorRef]],
+                  clinicianMap: Map[ClinicianSpecialty, List[ActorRef]],
                   uuid: String,
                   id: String,
                   name: String,

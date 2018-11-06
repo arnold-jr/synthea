@@ -94,4 +94,12 @@ package object concepts {
       allowed.toList.map(s => s.replace('_', ' ')).sorted
     }
   }
+
+  trait Education {
+    val gradeSchool: Option[Boolean]
+    val highSchool: Option[Boolean]
+    val bachelors: Option[Boolean]
+    val masters: Option[Boolean]
+
+  }
 }

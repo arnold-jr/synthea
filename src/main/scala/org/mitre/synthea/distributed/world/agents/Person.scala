@@ -106,6 +106,12 @@ object Person {
                          birthplace: String
                        ) extends Address
 
+  case class Demographics (
+                          race: RACE,
+                          ethnicity: ETHNICITY,
+                          language: Language
+                          )
+
   case class Behavior(
                        smoker: Option[Boolean] = None,
                        quitSmokingProbability: Option[Double] = None,

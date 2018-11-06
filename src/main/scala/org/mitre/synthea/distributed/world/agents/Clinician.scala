@@ -4,13 +4,13 @@ import java.time.Period
 import java.util.UUID
 
 import akka.actor.{FSM, Props}
-import org.mitre.synthea.distributed.world.concepts.ClinicianSpecialty
+import org.mitre.synthea.distributed.world.concepts.{ClinicianSpecialty, Education}
 import org.mitre.synthea.distributed.world.geography.Address
 
 import scala.util.Random
 
 // keep track of seed so it can be exported later
-class Clinician(val seed: Long, val specialty: ClinicianSpecialty) extends FSM[Clinician.State, Clinician.Data] {
+class Clinician(val seed: Long, val specialty: ClinicianSpecialty) extends FSM[Clinician.State, Clinician.StateData] {
   import Clinician._
   import Protocol._
 
@@ -24,15 +24,15 @@ class Clinician(val seed: Long, val specialty: ClinicianSpecialty) extends FSM[C
 
   when(Active) {
 
-    case Event("SeePatient", d: StateData) =>
+    case Event("SeePatient", d: Data) =>
       log.debug("Seeing patient")
       stay using d.copy(numEncounters = d.numEncounters + 1)
 
-    case Event("LearnMedicine", d: StateData) =>
+    case Event("LearnMedicine", d: Data) =>
       log.debug("Learning medicine")
       stay using d.copy(numEncounters = d.numEncounters + 1)
 
-    case Event("LearnLanguage(language)", d: StateData) =>
+    case Event("LearnLanguage(language)", d: Data) =>
       log.debug("Learning language")
       stay using d.copy(numEncounters = d.numEncounters + 1)
 
@@ -55,6 +55,13 @@ object Clinician {
                                 zip: String
                               ) extends Address
 
+  case class ClinicianEducation(
+                                 gradeSchool: Option[Boolean] = Some(true),
+                                 highSchool: Option[Boolean] = Some(true),
+                                 bachelors: Option[Boolean] = Some(true),
+                                 masters: Option[Boolean] = Some(true)
+                               ) extends Education
+
   // states
   sealed trait State
   case object InGradeSchool extends State
@@ -65,18 +72,20 @@ object Clinician {
   case object Active extends State
   case object Retired extends State
 
-  sealed trait Data
-  case object Uninitialized extends Data
-  case class StateData(random: Random,
-                       name: Person.Name,
-                       gender: Gender,
-                       age: Period,
-                       legal: Person.Legal,
-                       address: ClinicianAddress,
-                       numEncounters: Int,
-                       specialty: ClinicianSpecialty,
-                       servicesProvided: List[String] = List.empty[String]
-                      ) extends Data {
+  sealed trait StateData
+  case object Uninitialized extends StateData
+  case class Data(
+                   random: Random,
+                   name: Person.Name,
+                   gender: Gender,
+                   age: Period,
+                   legal: Person.Legal,
+                   address: ClinicianAddress,
+                   education: ClinicianEducation,
+                   numEncounters: Int,
+                   specialty: ClinicianSpecialty,
+                   servicesProvided: List[String] = List.empty[String]
+                 ) extends StateData {
 
 
   def props(seed: Long, specialty: ClinicianSpecialty) = Props(new Clinician(seed, specialty))
